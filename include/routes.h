@@ -1,6 +1,7 @@
 #ifndef ROUTES_H
 #define ROUTES_H
 
+#include "db.h"
 #include <httpserver.hpp>
 #include <string>
 #include <memory>
@@ -24,6 +25,26 @@ public:
 };
 
 class cart_resource : public http_resource {
+public:
+    std::shared_ptr<http_response> render(const http_request& req) override;
+};
+
+class delete_user_resource : public http_resource {
+public:
+    std::shared_ptr<http_response> render(const http_request& req) override;
+};
+
+class update_user_resource : public http_resource {
+public:
+    std::shared_ptr<http_response> render(const http_request& req) override;
+};
+
+class add_user_resource : public http_resource {
+public:
+    std::shared_ptr<http_response> render(const http_request& req) override;
+};
+
+class get_cart_resource : public http_resource {
 public:
     std::shared_ptr<http_response> render(const http_request& req) override;
 };
