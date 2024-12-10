@@ -11,7 +11,7 @@ pkg_check_modules(LIBMICROHTTPD REQUIRED libmicrohttpd)
 pkg_check_modules(LIBJWT REQUIRED libjwt)
 pkg_check_modules(SQLITE3 REQUIRED sqlite3)
  
-add_executable(server main.cpp)
+add_executable(server main.cpp src/db.cpp src/token.cpp src/routes.cpp)
  
  
 target_include_directories(server PRIVATE ${LIBHTTPSERVER_INCLUDE_DIRS} ${LIBMICROHTTPD_INCLUDE_DIRS} ${LIBJWT_INCLUDE_DIRS} ${SQLITE3_INCLUDE_DIRS})
