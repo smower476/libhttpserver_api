@@ -1,8 +1,14 @@
 #include "../include/routes.h"
 #include "../include/db.h"
+#include "../include/regex.h"
+
 std::shared_ptr<http_response> login_resource::render(const http_request& req) {
     std::string username = req.get_arg("username");
     std::string password = req.get_arg("password");
+    
+    if (!is_valid_login(username) || !is_valid_password(password)){
+        return std::make_shared<string_response>("Invalid username or password", 401, "text/plain");
+    }
 
     if (validate_user(username, password)) {
         std::string token = create_jwt(username);
@@ -73,7 +79,10 @@ std::shared_ptr<http_response> update_user_resource::render(const http_request& 
 std::shared_ptr<http_response> add_user_resource::render(const http_request& req) {
     std::string username = req.get_arg("username");
     std::string password = req.get_arg("password");
-
+    if (!is_valid_login(username) || !is_valid_password(password)){
+        return std::make_shared<string_response>("Invalid username or password", 401, "text/plain");
+    }
+    
     if (add_user(username, password)) {
         return std::make_shared<string_response>("User created successfully", 201, "text/plain");
     }
