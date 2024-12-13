@@ -3,8 +3,12 @@
 #include "include/routes.h"
 #include <httpserver.hpp>
 #include "include/db.h"
+#include <sodium.h>
+
+#define PORT 8080
 
 using namespace httpserver;
+
 
 int main() {
     if (!open_db("store.db")) {
@@ -14,7 +18,7 @@ int main() {
 
     create_tables();
 
-    webserver ws = create_webserver(8080);
+    webserver ws = create_webserver(PORT);
 
     login_resource login_res;
     validate_resource validate_res;
@@ -31,7 +35,7 @@ int main() {
     ws.register_resource("/delete-user", &delete_user_res);  // User deletion endpoint
     ws.register_resource("/update-password", &update_user_res); // Password update endpoint
     ws.register_resource("/get-cart", &get_cart_res);        // Get cart endpoint
-    std::cout << "Server running on http://localhost:8080" << std::endl;
+    std::cout << "Server running on http://localhost:" << PORT << std::endl;
 
     ws.start(true);
 

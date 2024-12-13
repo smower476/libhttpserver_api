@@ -1,5 +1,8 @@
 #include "../include/db.h"
 #include <iostream>
+#include <sodium.h>  
+#include <string>
+
 sqlite3* db;
 
 bool open_db(const std::string& db_filename) {
@@ -42,26 +45,57 @@ void create_tables() {
     }
 }
 
-bool add_user(const std::string& username, const std::string& password) {
-    const std::string sql = "INSERT INTO users (username, password) VALUES (?, ?);";
-    sqlite3_stmt* stmt;
+
+std::string hash_password(const std::string& password) {
     
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
-        return false;
+    char hashed_password[crypto_pwhash_STRBYTES];
+
+    
+    if (crypto_pwhash_str(
+            hashed_password,
+            password.c_str(),
+            password.length(),
+            crypto_pwhash_OPSLIMIT_INTERACTIVE,
+            crypto_pwhash_MEMLIMIT_INTERACTIVE) != 0) {
+        throw std::runtime_error("Password hashing failed");
     }
 
-    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_STATIC);
+    return std::string(hashed_password);
+}
 
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
-        std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
+
+bool verify_password(const std::string& password, const std::string& hashed_password) {
+    return crypto_pwhash_str_verify(hashed_password.c_str(), password.c_str(), password.length()) == 0;
+}
+
+bool add_user(const std::string& username, const std::string& password) {
+    try {
+        
+        std::string hashed_password = hash_password(password);
+
+        const std::string sql = "INSERT INTO users (username, password) VALUES (?, ?);";
+        sqlite3_stmt* stmt;
+
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+            return false;
+        }
+
+        sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, hashed_password.c_str(), -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_finalize(stmt);
+            return false;
+        }
+
         sqlite3_finalize(stmt);
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error hashing password: " << e.what() << std::endl;
         return false;
     }
-
-    sqlite3_finalize(stmt);
-    return true;
 }
 
 bool validate_user(const std::string& username, const std::string& password) {
@@ -76,9 +110,11 @@ bool validate_user(const std::string& username, const std::string& password) {
     sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
-        std::string stored_password = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        std::string stored_hashed_password = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
         sqlite3_finalize(stmt);
-        return stored_password == password;
+
+        
+        return verify_password(password, stored_hashed_password);
     }
 
     sqlite3_finalize(stmt);
@@ -130,10 +166,7 @@ std::string get_cart(const std::string& username) {
     return cart_info.empty() ? "No items in cart." : cart_info;
 }
 
-
-// Delete user
 bool delete_user(const std::string& username) {
-    // Delete from the cart table first to maintain foreign key integrity
     const std::string delete_cart_sql = "DELETE FROM cart WHERE username = ?;";
     sqlite3_stmt* cart_stmt;
 
@@ -172,26 +205,33 @@ bool delete_user(const std::string& username) {
     return true;
 }
 
-// Update user
 bool update_user_password(const std::string& username, const std::string& new_password) {
-    const std::string sql = "UPDATE users SET password = ? WHERE username = ?;";
-    sqlite3_stmt* stmt;
+    try {
+        
+        std::string hashed_password = hash_password(new_password);
 
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
-        return false;
-    }
+        const std::string sql = "UPDATE users SET password = ? WHERE username = ?;";
+        sqlite3_stmt* stmt;
 
-    sqlite3_bind_text(stmt, 1, new_password.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, username.c_str(), -1, SQLITE_STATIC);
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+            return false;
+        }
 
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
-        std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_bind_text(stmt, 1, hashed_password.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, username.c_str(), -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_finalize(stmt);
+            return false;
+        }
+
         sqlite3_finalize(stmt);
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error hashing password: " << e.what() << std::endl;
         return false;
     }
-
-    sqlite3_finalize(stmt);
-    return true;
 }
 

@@ -1,36 +1,33 @@
 #!/bin/bash
+ADDRESS=localhost:8080
+LOGIN=max
+PASSWORD=secretsecret
+NEW_PASSWORD=newsecret
+# Delete user
+curl -X POST http://$ADDRESS/delete-user -d "username=$LOGIN" 
+printf "\n"
 
-# Base URL
-BASE_URL="http://localhost:8080"
+# Create user
+curl -X POST http://$ADDRESS/add-user -d "username=$LOGIN&password=$PASSWORD"
+printf "\n"
 
-# Test variables
-USERNAME="testuser"
-PASSWORD="testpassword"
-ITEM_NAME="apple"
-QUANTITY=5
+# Get JWT token
+JWT=$(curl -X POST http://$ADDRESS/login -d "username=$LOGIN&password=$PASSWORD")
+echo $JWT
+printf "\n"
 
-echo "Testing User Creation..."
-curl -X POST "$BASE_URL/users?username=$USERNAME&password=$PASSWORD"
+# Add to cart
+curl -X POST http://$ADDRESS/add-to-cart -d "item_name=apple&quantity=2" -H "Authorization: Bearer $JWT"
+printf "\n"
 
-echo -e "\nTesting User Listing..."
-curl -X GET "$BASE_URL/users"
+# Get cart
+curl -X POST http://$ADDRESS/get-cart -H "Authorization: Bearer $JWT"
+printf "\n"
 
-echo -e "\nTesting Login to Get JWT..."
-JWT=$(curl -s -X POST "$BASE_URL/login?username=$USERNAME&password=$PASSWORD")
-echo "JWT: $JWT"
+# Update password
+curl -X POST http://$ADDRESS/update-password -d "username=$LOGIN&new_password=$NEW_PASSWORD"
+printf "\n"
 
-echo -e "\nTesting Add Item to Cart..."
-curl -X POST "$BASE_URL/cart" \
-     -H "Authorization: Bearer $JWT" \
-     -d "item_name=$ITEM_NAME&quantity=$QUANTITY"
-
-echo -e "\nTesting List Items in Cart..."
-curl -X GET "$BASE_URL/cart" \
-     -H "Authorization: Bearer $JWT"
-
-echo -e "\nTesting Invalid Token..."
-curl -X GET "$BASE_URL/cart" \
-     -H "Authorization: Bearer invalidtoken"
-
-echo -e "\nFinished Testing!"
-
+# Delete user
+curl -X POST http://$ADDRESS/delete-user -d "username=$LOGIN" 
+printf "\n"
